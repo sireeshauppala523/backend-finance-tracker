@@ -1,0 +1,118 @@
+trigger:
+- main
+
+pr:
+- main
+
+variables:
+  vmImageName: ubuntu-latest
+  dotnetVersion: 8.0.x
+  buildConfiguration: Release
+  backendProject: PersonalFinanceTracker.Api.csproj
+  azureServiceConnection: CHANGE_ME_AZURE_SERVICE_CONNECTION
+  acrName: CHANGE_ME_ACR_NAME
+  backendImageRepository: backend-finance-tracker
+  backendWebAppName: CHANGE_ME_BACKEND_WEB_APP
+  backendResourceGroup: CHANGE_ME_BACKEND_RESOURCE_GROUP
+  postgresConnectionString: Host=your-financeadmin.postgres.database.azure.com;Port=5432;Database=finance_tracker;Username=finance_admin;Password=CHANGE_ME;SSL Mode=Require;Trust Server Certificate=true
+  jwtIssuer: PersonalFinanceTracker
+  jwtAudience: PersonalFinanceTrackerClient
+  jwtKey: CHANGE_ME_LONG_RANDOM_SECRET
+  corsAllowedOrigin: https://CHANGE_ME_FRONTEND_WEB_APP.azurewebsites.net
+
+stages:
+- stage: BuildAndPublish
+  displayName: Build backend
+  jobs:
+  - job: Build
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: UseDotNet@2
+      inputs:
+        packageType: sdk
+        version: $(dotnetVersion)
+
+    - script: dotnet restore $(backendProject)
+      workingDirectory: $(Build.SourcesDirectory)/backend-finance-tracker
+      displayName: Restore backend
+
+    - script: dotnet build $(backendProject) --configuration $(buildConfiguration) --no-restore
+      workingDirectory: $(Build.SourcesDirectory)/backend-finance-tracker
+      displayName: Build backend
+
+    - script: dotnet publish $(backendProject) --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/backend
+      workingDirectory: $(Build.SourcesDirectory)/backend-finance-tracker
+      displayName: Publish backend
+
+- stage: ContainerizeAndDeploy
+  displayName: Build backend Podman image and deploy
+  dependsOn: BuildAndPublish
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  jobs:
+  - job: BuildPushImage
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: AzureCLI@2
+      displayName: Install Podman
+      inputs:
+        azureSubscription: $(azureServiceConnection)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+          podman --version
+
+    - task: AzureCLI@2
+      displayName: Login to ACR with Podman
+      inputs:
+        azureSubscription: $(azureServiceConnection)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          TOKEN=$(az acr login --name $(acrName) --expose-token --output tsv --query accessToken)
+          podman login $(acrName).azurecr.io -u 00000000-0000-0000-0000-000000000000 -p $TOKEN
+
+    - task: AzureCLI@2
+      displayName: Build and push backend image
+      inputs:
+        azureSubscription: $(azureServiceConnection)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          podman build -f backend-finance-tracker/Containerfile -t $(acrName).azurecr.io/$(backendImageRepository):$(Build.BuildId) backend-finance-tracker
+          podman push $(acrName).azurecr.io/$(backendImageRepository):$(Build.BuildId)
+
+  - deployment: DeployBackend
+    displayName: Deploy backend container
+    environment: devtest-backend
+    dependsOn: BuildPushImage
+    pool:
+      vmImage: $(vmImageName)
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: AzureAppServiceSettings@1
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              appName: $(backendWebAppName)
+              resourceGroupName: $(backendResourceGroup)
+              appSettings: |
+                [
+                  {"name":"ASPNETCORE_ENVIRONMENT","value":"Development","slotSetting":false},
+                  {"name":"ConnectionStrings__DefaultConnection","value":"$(postgresConnectionString)","slotSetting":false},
+                  {"name":"Jwt__Issuer","value":"$(jwtIssuer)","slotSetting":false},
+                  {"name":"Jwt__Audience","value":"$(jwtAudience)","slotSetting":false},
+                  {"name":"Jwt__Key","value":"$(jwtKey)","slotSetting":false},
+                  {"name":"Cors__AllowedOrigins__0","value":"$(corsAllowedOrigin)","slotSetting":false},
+                  {"name":"WEBSITES_PORT","value":"8080","slotSetting":false}
+                ]
+
+          - task: AzureWebAppContainer@1
+            inputs:
+              azureSubscription: $(azureServiceConnection)
+              appName: $(backendWebAppName)
+              containers: $(acrName).azurecr.io/$(backendImageRepository):$(Build.BuildId)

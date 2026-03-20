@@ -1,0 +1,15 @@
+# .NET
+bin/
+obj/
+TestResults/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local settings / secrets
+appsettings.Local.json
+appsettings.*.local.json
+
+# Logs
+*.log

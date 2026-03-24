@@ -34,7 +34,8 @@ public class AuthController(AppDbContext dbContext, ITokenService tokenService, 
         {
             Email = normalizedEmail,
             DisplayName = request.DisplayName.Trim(),
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            PreferredCurrency = string.IsNullOrWhiteSpace(request.PreferredCurrency) ? "INR" : request.PreferredCurrency.Trim().ToUpperInvariant()
         };
 
         dbContext.Users.Add(user);
@@ -56,7 +57,9 @@ public class AuthController(AppDbContext dbContext, ITokenService tokenService, 
             refreshToken.Token,
             DateTime.UtcNow.AddMinutes(jwtOptions.Value.AccessTokenMinutes),
             user.DisplayName,
-            user.Email)));
+            user.Email,
+            user.AvatarUrl,
+            user.PreferredCurrency)));
     }
 
     [HttpPost("login")]
@@ -77,7 +80,9 @@ public class AuthController(AppDbContext dbContext, ITokenService tokenService, 
             refreshToken.Token,
             DateTime.UtcNow.AddMinutes(jwtOptions.Value.AccessTokenMinutes),
             user.DisplayName,
-            user.Email)));
+            user.Email,
+            user.AvatarUrl,
+            user.PreferredCurrency)));
     }
 
     [HttpPost("refresh")]
@@ -103,7 +108,9 @@ public class AuthController(AppDbContext dbContext, ITokenService tokenService, 
             nextRefresh.Token,
             DateTime.UtcNow.AddMinutes(accessTokenMinutes),
             token.User.DisplayName,
-            token.User.Email)));
+            token.User.Email,
+            token.User.AvatarUrl,
+            token.User.PreferredCurrency)));
     }
 
     [HttpPost("forgot-password")]

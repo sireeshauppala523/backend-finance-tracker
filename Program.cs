@@ -70,6 +70,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IForecastService, ForecastService>();
 builder.Services.AddHostedService<RecurringTransactionWorker>();
 
 var app = builder.Build();
@@ -107,6 +108,16 @@ using (var scope = app.Services.CreateScope())
     {
         await dbContext.Database.EnsureCreatedAsync();
     }
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE "Users"
+        ADD COLUMN IF NOT EXISTS "AvatarUrl" text;
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE "Users"
+        ADD COLUMN IF NOT EXISTS "PreferredCurrency" character varying(8) NOT NULL DEFAULT 'INR';
+        """);
 
     await dbContext.SeedDefaultsAsync();
 }

@@ -11,10 +11,10 @@ ASP.NET Core 8 Web API for the Personal Finance Tracker application.
 
 ## Main files
 
-- [Program.cs](d:/personalFinanceTracker/backend-finance-tracker/Program.cs)
-- [appsettings.json](d:/personalFinanceTracker/backend-finance-tracker/appsettings.json)
-- [appsettings.Development.json](d:/personalFinanceTracker/backend-finance-tracker/appsettings.Development.json)
-- [Containerfile](d:/personalFinanceTracker/backend-finance-tracker/Containerfile)
+- `Program.cs`
+- `appsettings.json`
+- `appsettings.Development.json`
+- `Containerfile`
 
 ## Local run
 
@@ -24,7 +24,7 @@ dotnet restore
 dotnet run
 ```
 
-Default local URL from [launchSettings.json](d:/personalFinanceTracker/backend-finance-tracker/Properties/launchSettings.json):
+Default local URL from `Properties/launchSettings.json`:
 
 - `http://localhost:5000`
 
@@ -32,7 +32,7 @@ Default local URL from [launchSettings.json](d:/personalFinanceTracker/backend-f
 
 Use one of these:
 
-1. [appsettings.Development.json](d:/personalFinanceTracker/backend-finance-tracker/appsettings.Development.json)
+1. `appsettings.Development.json`
 2. environment variables
 3. .NET user secrets
 
@@ -46,15 +46,15 @@ dotnet user-secrets set "Jwt:Key" "YOUR_LONG_RANDOM_LOCAL_SECRET_KEY"
 
 ## Required Azure settings
 
-Set these in the backend Azure Web App configuration:
+The backend requires these Azure App Service application setting names:
 
-- `ASPNETCORE_ENVIRONMENT=Development` for Dev/Test plan, or `Production` later if needed
-- `ConnectionStrings__DefaultConnection=Host=your-financeadmin.postgres.database.azure.com;Port=5432;Database=finance_tracker;Username=finance_admin;Password=YOUR_PASSWORD;SSL Mode=Require;Trust Server Certificate=true`
-- `Jwt__Issuer=PersonalFinanceTracker`
-- `Jwt__Audience=PersonalFinanceTrackerClient`
-- `Jwt__Key=YOUR_LONG_RANDOM_SECRET`
-- `Cors__AllowedOrigins__0=https://YOUR_FRONTEND_HOST`
-- `WEBSITES_PORT=8080`
+- `ASPNETCORE_ENVIRONMENT`
+- `ConnectionStrings__DefaultConnection`
+- `Jwt__Issuer`
+- `Jwt__Audience`
+- `Jwt__Key`
+- `Cors__AllowedOrigins__0`
+- `WEBSITES_PORT`
 
 ## Database notes
 
@@ -64,12 +64,12 @@ The app now:
 - falls back to `EnsureCreated()` if the repo has no generated migrations yet
 - seeds default categories on startup
 
-A local .NET tool manifest for EF Core is included at [dotnet-tools.json](d:/personalFinanceTracker/backend-finance-tracker/.config/dotnet-tools.json).
+A local .NET tool manifest for EF Core is included at `.config/dotnet-tools.json`.
 
 Before creating migrations on your machine:
 
 ```powershell
-cd d:\personalFinanceTracker\backend-finance-tracker
+cd d:\pft\backend-finance-tracker
 dotnet tool restore
 ```
 
@@ -105,7 +105,7 @@ podman run --rm -p 8080:8080 \
 
 Shared pipeline file:
 
-- [azure-pipelines.yml](d:/personalFinanceTracker/backend-finance-tracker/azure-pipelines.yml)
+- `azure-pipelines.yml`
 
 It builds this API, runs backend tests, builds a Podman image, pushes to ACR, and deploys to Azure Web App for Containers.
 

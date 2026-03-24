@@ -17,6 +17,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>().HasIndex(x => x.Email).IsUnique();
+        modelBuilder.Entity<User>().Property(x => x.PreferredCurrency).HasMaxLength(8);
         modelBuilder.Entity<Budget>().HasIndex(x => new { x.UserId, x.CategoryId, x.Month, x.Year }).IsUnique();
         modelBuilder.Entity<Transaction>().Property(x => x.Tags).HasColumnType("text[]");
     }

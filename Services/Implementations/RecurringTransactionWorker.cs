@@ -32,6 +32,12 @@ public class RecurringTransactionWorker(IServiceScopeFactory scopeFactory, ILogg
                 continue;
             }
 
+            var account = await dbContext.Accounts.SingleOrDefaultAsync(x => x.Id == recurring.AccountId.Value, cancellationToken);
+            if (account is null)
+            {
+                continue;
+            }
+
             dbContext.Transactions.Add(new Transaction
             {
                 UserId = recurring.UserId,
@@ -44,6 +50,16 @@ public class RecurringTransactionWorker(IServiceScopeFactory scopeFactory, ILogg
                 Note = "Auto-generated from recurring schedule",
                 RecurringTransactionId = recurring.Id
             });
+
+            if (recurring.Type == "income")
+            {
+                account.CurrentBalance += recurring.Amount;
+            }
+            else if (recurring.Type == "expense")
+            {
+                account.CurrentBalance -= recurring.Amount;
+            }
+            account.LastUpdatedAt = DateTime.UtcNow;
 
             recurring.NextRunDate = recurring.Frequency switch
             {

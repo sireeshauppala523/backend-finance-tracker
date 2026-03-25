@@ -68,9 +68,11 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IAccountAccessService, AccountAccessService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IForecastService, ForecastService>();
+builder.Services.AddScoped<IInsightsService, InsightsService>();
 builder.Services.AddHostedService<RecurringTransactionWorker>();
 
 var app = builder.Build();
@@ -117,6 +119,38 @@ using (var scope = app.Services.CreateScope())
     await dbContext.Database.ExecuteSqlRawAsync("""
         ALTER TABLE "Users"
         ADD COLUMN IF NOT EXISTS "PreferredCurrency" character varying(8) NOT NULL DEFAULT 'INR';
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE "Budgets"
+        ADD COLUMN IF NOT EXISTS "AccountId" uuid NULL;
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "Rules" (
+            "Id" uuid PRIMARY KEY,
+            "UserId" uuid NOT NULL,
+            "Name" text NOT NULL,
+            "ConditionField" text NOT NULL,
+            "ConditionOperator" text NOT NULL,
+            "ConditionValue" text NOT NULL,
+            "ActionType" text NOT NULL,
+            "ActionValue" text NOT NULL,
+            "IsActive" boolean NOT NULL DEFAULT TRUE,
+            "CreatedAt" timestamp with time zone NOT NULL,
+            "UpdatedAt" timestamp with time zone NOT NULL
+        );
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "SharedAccountMembers" (
+            "Id" uuid PRIMARY KEY,
+            "AccountId" uuid NOT NULL,
+            "UserId" uuid NOT NULL,
+            "AddedByUserId" uuid NOT NULL,
+            "Role" character varying(16) NOT NULL DEFAULT 'viewer',
+            "CreatedAt" timestamp with time zone NOT NULL
+        );
         """);
 
     await dbContext.SeedDefaultsAsync();

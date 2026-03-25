@@ -4,15 +4,16 @@ using PersonalFinanceTracker.Api.Services.Interfaces;
 
 namespace PersonalFinanceTracker.Api.Services.Implementations;
 
-public class DashboardService(AppDbContext dbContext) : IDashboardService
+public class DashboardService(AppDbContext dbContext, IAccountAccessService accountAccessService) : IDashboardService
 {
     public async Task<object> GetSummaryAsync(Guid userId, CancellationToken cancellationToken)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var firstDay = new DateOnly(today.Year, today.Month, 1);
+        var accessibleAccountIds = await accountAccessService.GetAccessibleAccountIdsAsync(userId, cancellationToken);
 
         var monthTransactions = await dbContext.Transactions
-            .Where(x => x.UserId == userId && x.TransactionDate >= firstDay)
+            .Where(x => accessibleAccountIds.Contains(x.AccountId) && x.TransactionDate >= firstDay)
             .Include(x => x.Category)
             .OrderByDescending(x => x.TransactionDate)
             .ToListAsync(cancellationToken);

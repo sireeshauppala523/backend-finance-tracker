@@ -6,7 +6,7 @@ using PersonalFinanceTracker.Api.Services.Interfaces;
 
 namespace PersonalFinanceTracker.Api.Services.Implementations;
 
-public class ForecastService(AppDbContext dbContext) : IForecastService
+public class ForecastService(AppDbContext dbContext, IAccountAccessService accountAccessService) : IForecastService
 {
     public async Task<ForecastMonthResponse> GetMonthForecastAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -36,13 +36,14 @@ public class ForecastService(AppDbContext dbContext) : IForecastService
         var firstDay = new DateOnly(today.Year, today.Month, 1);
         var sampleStart = today.AddMonths(-3);
         var daysRemaining = Math.Max(monthEnd.DayNumber - today.DayNumber, 0);
+        var accessibleAccountIds = await accountAccessService.GetAccessibleAccountIdsAsync(userId, cancellationToken);
 
         var currentBalance = await dbContext.Accounts
-            .Where(x => x.UserId == userId)
+            .Where(x => accessibleAccountIds.Contains(x.Id))
             .SumAsync(x => x.CurrentBalance, cancellationToken);
 
         var historicalTransactions = await dbContext.Transactions
-            .Where(x => x.UserId == userId && x.TransactionDate >= sampleStart && x.TransactionDate <= today)
+            .Where(x => accessibleAccountIds.Contains(x.AccountId) && x.TransactionDate >= sampleStart && x.TransactionDate <= today)
             .ToListAsync(cancellationToken);
 
         var monthTransactions = historicalTransactions

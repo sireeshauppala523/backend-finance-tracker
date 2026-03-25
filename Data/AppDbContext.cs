@@ -13,13 +13,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Budget> Budgets => Set<Budget>();
     public DbSet<Goal> Goals => Set<Goal>();
     public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
+    public DbSet<Rule> Rules => Set<Rule>();
+    public DbSet<SharedAccountMember> SharedAccountMembers => Set<SharedAccountMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<User>().Property(x => x.PreferredCurrency).HasMaxLength(8);
-        modelBuilder.Entity<Budget>().HasIndex(x => new { x.UserId, x.CategoryId, x.Month, x.Year }).IsUnique();
+        modelBuilder.Entity<Budget>().HasIndex(x => new { x.UserId, x.AccountId, x.CategoryId, x.Month, x.Year }).IsUnique();
         modelBuilder.Entity<Transaction>().Property(x => x.Tags).HasColumnType("text[]");
+        modelBuilder.Entity<Rule>().HasIndex(x => x.UserId);
+        modelBuilder.Entity<SharedAccountMember>().HasIndex(x => new { x.AccountId, x.UserId }).IsUnique();
+        modelBuilder.Entity<SharedAccountMember>().Property(x => x.Role).HasMaxLength(16);
     }
 
     public async Task SeedDefaultsAsync()

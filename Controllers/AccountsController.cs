@@ -6,19 +6,41 @@ using PersonalFinanceTracker.Api.Data;
 using PersonalFinanceTracker.Api.DTOs.Accounts;
 using PersonalFinanceTracker.Api.Entities;
 using PersonalFinanceTracker.Api.Extensions;
+using PersonalFinanceTracker.Api.Services.Interfaces;
 
 namespace PersonalFinanceTracker.Api.Controllers;
 
 [ApiController]
 [Authorize]
 [Route("api/accounts")]
-public class AccountsController(AppDbContext dbContext) : ControllerBase
+public class AccountsController(AppDbContext dbContext, IAccountAccessService accountAccessService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<object>>> Get(CancellationToken cancellationToken)
     {
-        var accounts = await dbContext.Accounts.Where(x => x.UserId == User.GetUserId()).ToListAsync(cancellationToken);
-        return Ok(new ApiResponse<object>(true, accounts));
+        var userId = User.GetUserId();
+        var accessibleIds = await accountAccessService.GetAccessibleAccountIdsAsync(userId, cancellationToken);
+        var sharedRoles = await dbContext.SharedAccountMembers
+            .Where(x => x.UserId == userId)
+            .ToDictionaryAsync(x => x.AccountId, x => x.Role, cancellationToken);
+
+        var accounts = await dbContext.Accounts
+            .Where(x => accessibleIds.Contains(x.Id))
+            .ToListAsync(cancellationToken);
+
+        var result = accounts.Select(x => new
+        {
+            x.Id,
+            x.Name,
+            x.Type,
+            x.OpeningBalance,
+            x.CurrentBalance,
+            x.InstitutionName,
+            accessRole = x.UserId == userId ? "owner" : (sharedRoles.TryGetValue(x.Id, out var role) ? role : "viewer"),
+            isShared = x.UserId != userId
+        });
+
+        return Ok(new ApiResponse<object>(true, result));
     }
 
     [HttpPost]
@@ -60,8 +82,14 @@ public class AccountsController(AppDbContext dbContext) : ControllerBase
         if (request.Amount <= 0) return BadRequest(new ApiResponse<string>(false, string.Empty, "Transfer amount must be greater than 0."));
 
         var userId = User.GetUserId();
-        var source = await dbContext.Accounts.SingleOrDefaultAsync(x => x.Id == request.SourceAccountId && x.UserId == userId, cancellationToken);
-        var destination = await dbContext.Accounts.SingleOrDefaultAsync(x => x.Id == request.DestinationAccountId && x.UserId == userId, cancellationToken);
+        if (!await accountAccessService.CanEditAccountAsync(userId, request.SourceAccountId, cancellationToken) ||
+            !await accountAccessService.CanEditAccountAsync(userId, request.DestinationAccountId, cancellationToken))
+        {
+            return Forbid();
+        }
+
+        var source = await dbContext.Accounts.SingleOrDefaultAsync(x => x.Id == request.SourceAccountId, cancellationToken);
+        var destination = await dbContext.Accounts.SingleOrDefaultAsync(x => x.Id == request.DestinationAccountId, cancellationToken);
 
         if (source is null || destination is null) return NotFound();
         if (source.CurrentBalance < request.Amount) return BadRequest(new ApiResponse<string>(false, string.Empty, "Insufficient funds."));

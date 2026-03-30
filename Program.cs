@@ -73,6 +73,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IForecastService, ForecastService>();
 builder.Services.AddScoped<IInsightsService, InsightsService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHostedService<RecurringTransactionWorker>();
 
 var app = builder.Build();
@@ -149,6 +150,20 @@ using (var scope = app.Services.CreateScope())
             "UserId" uuid NOT NULL,
             "AddedByUserId" uuid NOT NULL,
             "Role" character varying(16) NOT NULL DEFAULT 'viewer',
+            "CreatedAt" timestamp with time zone NOT NULL
+        );
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS "Notifications" (
+            "Id" uuid PRIMARY KEY,
+            "UserId" uuid NOT NULL,
+            "Type" character varying(24) NOT NULL DEFAULT 'info',
+            "Title" text NOT NULL,
+            "Message" text NOT NULL,
+            "RelatedEntityType" character varying(32) NULL,
+            "RelatedEntityId" uuid NULL,
+            "IsRead" boolean NOT NULL DEFAULT FALSE,
             "CreatedAt" timestamp with time zone NOT NULL
         );
         """);

@@ -15,6 +15,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RecurringTransaction> RecurringTransactions => Set<RecurringTransaction>();
     public DbSet<Rule> Rules => Set<Rule>();
     public DbSet<SharedAccountMember> SharedAccountMembers => Set<SharedAccountMember>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,6 +26,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Rule>().HasIndex(x => x.UserId);
         modelBuilder.Entity<SharedAccountMember>().HasIndex(x => new { x.AccountId, x.UserId }).IsUnique();
         modelBuilder.Entity<SharedAccountMember>().Property(x => x.Role).HasMaxLength(16);
+        modelBuilder.Entity<Notification>().HasIndex(x => new { x.UserId, x.IsRead, x.CreatedAt });
+        modelBuilder.Entity<Notification>().Property(x => x.Type).HasMaxLength(24);
+        modelBuilder.Entity<Notification>().Property(x => x.RelatedEntityType).HasMaxLength(32);
     }
 
     public async Task SeedDefaultsAsync()

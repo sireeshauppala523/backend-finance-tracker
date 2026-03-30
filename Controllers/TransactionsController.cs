@@ -13,7 +13,7 @@ namespace PersonalFinanceTracker.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/transactions")]
-public class TransactionsController(AppDbContext dbContext, IAccountAccessService accountAccessService) : ControllerBase
+public class TransactionsController(AppDbContext dbContext, IAccountAccessService accountAccessService, INotificationService notificationService) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<ApiResponse<object>>> Get([FromQuery] string? type, [FromQuery] Guid? accountId, [FromQuery] Guid? categoryId, [FromQuery] string? search, CancellationToken cancellationToken)
@@ -68,6 +68,10 @@ public class TransactionsController(AppDbContext dbContext, IAccountAccessServic
 
         var account = await dbContext.Accounts.SingleOrDefaultAsync(x => x.Id == request.AccountId, cancellationToken);
         if (account is null) return BadRequest(new ApiResponse<string>(false, string.Empty, "Invalid account."));
+        if (request.Type == "expense" && account.CurrentBalance < request.Amount)
+        {
+            return BadRequest(new ApiResponse<string>(false, string.Empty, "Insufficient balance. Choose a smaller expense amount or a different account."));
+        }
 
         var transaction = new Transaction
         {
@@ -91,6 +95,14 @@ public class TransactionsController(AppDbContext dbContext, IAccountAccessServic
         var message = ruleMessages.Count > 0
             ? $"Transaction saved. {string.Join(" ", ruleMessages)}"
             : "Transaction saved.";
+        await notificationService.CreateAsync(
+            userId,
+            ruleMessages.Count > 0 ? "warning" : "success",
+            ruleMessages.Count > 0 ? "Transaction alert" : "Transaction saved",
+            $"{BuildTransactionSummary(transaction)}{(ruleMessages.Count > 0 ? $" {string.Join(" ", ruleMessages)}" : string.Empty)}",
+            "transaction",
+            transaction.Id,
+            cancellationToken);
         return Ok(new ApiResponse<object>(true, transaction, message));
     }
 
@@ -123,10 +135,26 @@ public class TransactionsController(AppDbContext dbContext, IAccountAccessServic
         }
 
         var nextAccount = await dbContext.Accounts.SingleAsync(x => x.Id == request.AccountId, cancellationToken);
+        var nextAccountStartingBalance = nextAccount.Id == account.Id
+            ? account.CurrentBalance
+            : nextAccount.CurrentBalance;
+        if (request.Type == "expense" && nextAccountStartingBalance < request.Amount)
+        {
+            return BadRequest(new ApiResponse<string>(false, string.Empty, "Insufficient balance. Choose a smaller expense amount or a different account."));
+        }
+
         var ruleMessages = await ApplyRulesAsync(userId, transaction, cancellationToken);
         ApplyBalance(nextAccount, request.Type, request.Amount);
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await notificationService.CreateAsync(
+            userId,
+            ruleMessages.Count > 0 ? "warning" : "info",
+            ruleMessages.Count > 0 ? "Transaction alert" : "Transaction updated",
+            $"{BuildTransactionSummary(transaction)}{(ruleMessages.Count > 0 ? $" {string.Join(" ", ruleMessages)}" : string.Empty)}",
+            "transaction",
+            transaction.Id,
+            cancellationToken);
         return Ok(new ApiResponse<object>(true, transaction, ruleMessages.Count > 0 ? string.Join(" ", ruleMessages) : null));
     }
 
@@ -247,5 +275,11 @@ public class TransactionsController(AppDbContext dbContext, IAccountAccessServic
         if (type == "income") account.CurrentBalance += amountDelta;
         else if (type == "expense") account.CurrentBalance -= amountDelta;
         account.LastUpdatedAt = DateTime.UtcNow;
+    }
+
+    private static string BuildTransactionSummary(Transaction transaction)
+    {
+        var merchant = string.IsNullOrWhiteSpace(transaction.Merchant) ? "Transaction" : transaction.Merchant.Trim();
+        return $"{merchant} for {transaction.Amount:0.##} was saved.";
     }
 }

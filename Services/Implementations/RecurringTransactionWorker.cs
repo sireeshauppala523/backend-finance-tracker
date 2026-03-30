@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PersonalFinanceTracker.Api.Data;
 using PersonalFinanceTracker.Api.Entities;
+using PersonalFinanceTracker.Api.Services.Interfaces;
 
 namespace PersonalFinanceTracker.Api.Services.Implementations;
 
@@ -19,6 +20,7 @@ public class RecurringTransactionWorker(IServiceScopeFactory scopeFactory, ILogg
     {
         using var scope = scopeFactory.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var dueItems = await dbContext.RecurringTransactions
@@ -68,6 +70,15 @@ public class RecurringTransactionWorker(IServiceScopeFactory scopeFactory, ILogg
                 "yearly" => recurring.NextRunDate.AddYears(1),
                 _ => recurring.NextRunDate.AddMonths(1)
             };
+
+            await notificationService.CreateAsync(
+                recurring.UserId,
+                "info",
+                "Recurring transaction created",
+                $"Recurring {recurring.Type} \"{recurring.Title}\" was added to your transactions.",
+                "recurring",
+                recurring.Id,
+                cancellationToken);
         }
 
         if (dueItems.Count > 0)

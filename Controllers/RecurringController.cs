@@ -13,7 +13,7 @@ namespace PersonalFinanceTracker.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/recurring")]
-public class RecurringController(AppDbContext dbContext, IAccountAccessService accountAccessService) : ControllerBase
+public class RecurringController(AppDbContext dbContext, IAccountAccessService accountAccessService, INotificationService notificationService) : ControllerBase
 {
     private async Task<bool> CanEditRecurringAsync(RecurringTransaction item, Guid userId, CancellationToken cancellationToken)
     {
@@ -62,6 +62,7 @@ public class RecurringController(AppDbContext dbContext, IAccountAccessService a
 
         dbContext.RecurringTransactions.Add(item);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await notificationService.CreateAsync(item.UserId, "success", "Recurring item saved", $"Recurring {item.Type} \"{item.Title}\" was scheduled.", "recurring", item.Id, cancellationToken);
         return Ok(new ApiResponse<object>(true, item));
     }
 
@@ -93,6 +94,7 @@ public class RecurringController(AppDbContext dbContext, IAccountAccessService a
         item.AutoCreateTransaction = request.AutoCreateTransaction;
         item.IsPaused = request.IsPaused;
         await dbContext.SaveChangesAsync(cancellationToken);
+        await notificationService.CreateAsync(item.UserId, "info", "Recurring item updated", $"Recurring {item.Type} \"{item.Title}\" was updated.", "recurring", item.Id, cancellationToken);
 
         return Ok(new ApiResponse<object>(true, item));
     }
@@ -107,8 +109,11 @@ public class RecurringController(AppDbContext dbContext, IAccountAccessService a
             cancellationToken);
         if (item is null) return NotFound();
         if (!await CanEditRecurringAsync(item, userId, cancellationToken)) return Forbid();
+        var title = item.Title;
+        var ownerUserId = item.UserId;
         dbContext.RecurringTransactions.Remove(item);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await notificationService.CreateAsync(ownerUserId, "info", "Recurring item deleted", $"Recurring item \"{title}\" was removed.", "recurring", id, cancellationToken);
         return NoContent();
     }
 }

@@ -6,13 +6,14 @@ using PersonalFinanceTracker.Api.Data;
 using PersonalFinanceTracker.Api.DTOs.Rules;
 using PersonalFinanceTracker.Api.Entities;
 using PersonalFinanceTracker.Api.Extensions;
+using PersonalFinanceTracker.Api.Services.Interfaces;
 
 namespace PersonalFinanceTracker.Api.Controllers;
 
 [ApiController]
 [Authorize]
 [Route("api/rules")]
-public class RulesController(AppDbContext dbContext) : ControllerBase
+public class RulesController(AppDbContext dbContext, INotificationService notificationService) : ControllerBase
 {
     private static readonly HashSet<string> AllowedFields = ["merchant", "amount", "category"];
     private static readonly HashSet<string> AllowedOperators = ["equals", "contains", "greaterThan", "lessThan"];
@@ -72,6 +73,7 @@ public class RulesController(AppDbContext dbContext) : ControllerBase
 
         dbContext.Rules.Add(rule);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await notificationService.CreateAsync(rule.UserId, "success", "Rule saved", $"Automation rule \"{rule.Name}\" is now active.", "rule", rule.Id, cancellationToken);
         return Ok(new ApiResponse<RuleResponse>(true, ToResponse(rule)));
     }
 
@@ -97,17 +99,21 @@ public class RulesController(AppDbContext dbContext) : ControllerBase
         rule.UpdatedAt = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+        await notificationService.CreateAsync(rule.UserId, "info", "Rule updated", $"Automation rule \"{rule.Name}\" was updated.", "rule", rule.Id, cancellationToken);
         return Ok(new ApiResponse<RuleResponse>(true, ToResponse(rule)));
     }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
+        var userId = User.GetUserId();
         var rule = await dbContext.Rules.SingleOrDefaultAsync(x => x.Id == id && x.UserId == User.GetUserId(), cancellationToken);
         if (rule is null) return NotFound();
 
+        var ruleName = rule.Name;
         dbContext.Rules.Remove(rule);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await notificationService.CreateAsync(userId, "info", "Rule deleted", $"Automation rule \"{ruleName}\" was removed.", "rule", id, cancellationToken);
         return NoContent();
     }
 

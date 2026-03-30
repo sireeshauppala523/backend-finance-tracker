@@ -227,6 +227,12 @@ public class TransactionsController(AppDbContext dbContext, IAccountAccessServic
 
     private static bool RuleMatches(Rule rule, Transaction transaction, string? categoryName)
     {
+        if (!string.Equals(rule.AppliesToType, "all", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(rule.AppliesToType, transaction.Type, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         return rule.ConditionField switch
         {
             "merchant" => CompareText(transaction.Merchant, rule.ConditionOperator, rule.ConditionValue),

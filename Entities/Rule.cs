@@ -8,6 +8,7 @@ public class Rule
     public string ConditionField { get; set; } = string.Empty;
     public string ConditionOperator { get; set; } = string.Empty;
     public string ConditionValue { get; set; } = string.Empty;
+    public string AppliesToType { get; set; } = "all";
     public string ActionType { get; set; } = string.Empty;
     public string ActionValue { get; set; } = string.Empty;
     public bool IsActive { get; set; } = true;

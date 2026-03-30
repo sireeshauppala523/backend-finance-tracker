@@ -135,12 +135,18 @@ using (var scope = app.Services.CreateScope())
             "ConditionField" text NOT NULL,
             "ConditionOperator" text NOT NULL,
             "ConditionValue" text NOT NULL,
+            "AppliesToType" character varying(16) NOT NULL DEFAULT 'all',
             "ActionType" text NOT NULL,
             "ActionValue" text NOT NULL,
             "IsActive" boolean NOT NULL DEFAULT TRUE,
             "CreatedAt" timestamp with time zone NOT NULL,
             "UpdatedAt" timestamp with time zone NOT NULL
         );
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE "Rules"
+        ADD COLUMN IF NOT EXISTS "AppliesToType" character varying(16) NOT NULL DEFAULT 'all';
         """);
 
     await dbContext.Database.ExecuteSqlRawAsync("""

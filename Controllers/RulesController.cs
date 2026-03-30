@@ -18,6 +18,7 @@ public class RulesController(AppDbContext dbContext, INotificationService notifi
     private static readonly HashSet<string> AllowedFields = ["merchant", "amount", "category"];
     private static readonly HashSet<string> AllowedOperators = ["equals", "contains", "greaterThan", "lessThan"];
     private static readonly HashSet<string> AllowedActionTypes = ["categorize", "tag", "alert"];
+    private static readonly HashSet<string> AllowedAppliesToTypes = ["all", "income", "expense"];
 
     private static string? ValidateRequest(RuleRequest request)
     {
@@ -25,6 +26,7 @@ public class RulesController(AppDbContext dbContext, INotificationService notifi
         if (string.IsNullOrWhiteSpace(request.Condition.Field) || !AllowedFields.Contains(request.Condition.Field.Trim())) return "Condition field is invalid.";
         if (string.IsNullOrWhiteSpace(request.Condition.Operator) || !AllowedOperators.Contains(request.Condition.Operator.Trim())) return "Condition operator is invalid.";
         if (string.IsNullOrWhiteSpace(request.Condition.Value)) return "Condition value is required.";
+        if (!string.IsNullOrWhiteSpace(request.AppliesToType) && !AllowedAppliesToTypes.Contains(request.AppliesToType.Trim())) return "Rule transaction type is invalid.";
         if (string.IsNullOrWhiteSpace(request.Action.Type) || !AllowedActionTypes.Contains(request.Action.Type.Trim())) return "Action type is invalid.";
         if (string.IsNullOrWhiteSpace(request.Action.Value)) return "Action value is required.";
         return null;
@@ -42,6 +44,7 @@ public class RulesController(AppDbContext dbContext, INotificationService notifi
                 x.Name,
                 new { field = x.ConditionField, @operator = x.ConditionOperator, value = x.ConditionValue },
                 new { type = x.ActionType, value = x.ActionValue },
+                x.AppliesToType,
                 x.IsActive,
                 x.CreatedAt,
                 x.UpdatedAt))
@@ -66,6 +69,7 @@ public class RulesController(AppDbContext dbContext, INotificationService notifi
             ConditionField = request.Condition.Field.Trim(),
             ConditionOperator = request.Condition.Operator.Trim(),
             ConditionValue = request.Condition.Value.Trim(),
+            AppliesToType = string.IsNullOrWhiteSpace(request.AppliesToType) ? "all" : request.AppliesToType.Trim(),
             ActionType = request.Action.Type.Trim(),
             ActionValue = request.Action.Value.Trim(),
             IsActive = request.IsActive,
@@ -93,6 +97,7 @@ public class RulesController(AppDbContext dbContext, INotificationService notifi
         rule.ConditionField = request.Condition.Field.Trim();
         rule.ConditionOperator = request.Condition.Operator.Trim();
         rule.ConditionValue = request.Condition.Value.Trim();
+        rule.AppliesToType = string.IsNullOrWhiteSpace(request.AppliesToType) ? "all" : request.AppliesToType.Trim();
         rule.ActionType = request.Action.Type.Trim();
         rule.ActionValue = request.Action.Value.Trim();
         rule.IsActive = request.IsActive;
@@ -123,6 +128,7 @@ public class RulesController(AppDbContext dbContext, INotificationService notifi
             rule.Name,
             new { field = rule.ConditionField, @operator = rule.ConditionOperator, value = rule.ConditionValue },
             new { type = rule.ActionType, value = rule.ActionValue },
+            rule.AppliesToType,
             rule.IsActive,
             rule.CreatedAt,
             rule.UpdatedAt);
